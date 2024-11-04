@@ -318,7 +318,8 @@ const DatabaseAccessor * Simulation::getSimulationDatabaseAccessor() const
 }
 
 Simulation::Simulation(const std::string& sim_name,
-                       Scheduler * scheduler) :
+                       Scheduler * scheduler,
+                       bool en_backtrace) :
     clk_manager_(scheduler),
     sim_name_(sim_name),
     scheduler_(scheduler),
@@ -335,13 +336,15 @@ Simulation::Simulation(const std::string& sim_name,
     // Watch for created nodes to which we will apply taps
     root_.getNodeAttachedNotification().REGISTER_FOR_THIS(rootDescendantAdded_);
 
-    // Handle illegal signals.
-    // Note: Update documentation if these signals are modified
-    backtrace_.setAsHandler(SIGSEGV);
-    backtrace_.setAsHandler(SIGFPE);
-    backtrace_.setAsHandler(SIGILL);
-    backtrace_.setAsHandler(SIGABRT);
-    backtrace_.setAsHandler(SIGBUS);
+    if (en_backtrace) {
+        // Handle illegal signals.
+        // Note: Update documentation if these signals are modified
+        backtrace_.setAsHandler(SIGSEGV);
+        backtrace_.setAsHandler(SIGFPE);
+        backtrace_.setAsHandler(SIGILL);
+        backtrace_.setAsHandler(SIGABRT);
+        backtrace_.setAsHandler(SIGBUS);
+    }
 
     report_repository_.reset(new sparta::ReportRepository(this));
 
@@ -2231,14 +2234,16 @@ void Simulation::checkAllVirtualParamsRead_(const ParameterTree& pt)
         }
         if(errors > 0){
             SpartaException ex("");
-            ex << "Found " << errors << " unread unbound parameters. These "
+            ex << "[Ignored] Found " << errors << " unread unbound parameters. These "
                   "parameter were specified by a configuration file or the command line but do not "
                   "correspond to any Parameter nodes in the device tree and were never directly "
                   "read from the unbound tree:\n";
             ex << err_list.str();
             ex << "\n This can be the result of supplying an archicture yaml that sets an expected topology followed by -c/-p options that change that topology. \n"
                 "\tIn this case, consider a new architecture or supply the architecture yaml file as a '-c' option instead of the '--arch' option";
+            // NOTE ignore errors
             throw ex;
+            // std::cout << ex.what() << std::endl;
         }
     }
 }
